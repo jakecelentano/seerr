@@ -714,7 +714,6 @@ authRoutes.get('/oidc/login/:slug', async (req, res, next) => {
   res.cookie(OIDC_CODE_VERIFIER_KEY, code_verifier, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    signed: true,
     // OAuth correlation cookies must survive the IdP's cross-site redirect
     // back to the app; SameSite=Strict drops them and the callback fails with
     // "missing correlation cookies". Lax is the OAuth 2.0 BCP recommendation.
@@ -736,7 +735,6 @@ authRoutes.get('/oidc/login/:slug', async (req, res, next) => {
   res.cookie(OIDC_STATE_KEY, state, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    signed: true,
     // OAuth correlation cookies must survive the IdP's cross-site redirect
     // back to the app; SameSite=Strict drops them and the callback fails with
     // "missing correlation cookies". Lax is the OAuth 2.0 BCP recommendation.
@@ -811,8 +809,8 @@ authRoutes.post(
     }
 
     const pkceCodeVerifier: string | undefined =
-      req.signedCookies[OIDC_CODE_VERIFIER_KEY];
-    const expectedState: string | undefined = req.signedCookies[OIDC_STATE_KEY];
+      req.cookies[OIDC_CODE_VERIFIER_KEY];
+    const expectedState: string | undefined = req.cookies[OIDC_STATE_KEY];
 
     if (!pkceCodeVerifier || !expectedState) {
       logger.warn('Rejected OIDC callback without correlation cookies', {
