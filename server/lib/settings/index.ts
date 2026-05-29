@@ -8,8 +8,12 @@ import { mergeWith } from 'lodash';
 import path from 'path';
 import webpush from 'web-push';
 
+type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
 // Prevents stale array entries when incoming data has fewer elements
-const mergeSettings = <T>(current: T, incoming: Partial<T>): T =>
+const mergeSettings = <T>(current: T, incoming: DeepPartial<T>): T =>
   mergeWith({}, current, incoming, (_objValue, srcValue) =>
     Array.isArray(srcValue) ? srcValue : undefined
   ) as T;
@@ -56,6 +60,25 @@ export interface JellyfinSettings {
   serverId: string;
   apiKey: string;
 }
+
+export type OidcProvider = {
+  slug: string;
+  name: string;
+  issuerUrl: string;
+  clientId: string;
+  clientSecret: string;
+  logo?: string;
+  requiredClaims?: string;
+  scopes?: string;
+  newUserLogin?: boolean;
+};
+
+export type PublicOidcProvider = Pick<OidcProvider, 'slug' | 'name' | 'logo'>;
+
+export interface OidcSettings {
+  providers: OidcProvider[];
+}
+
 export interface TautulliSettings {
   hostname?: string;
   port?: number;
@@ -144,6 +167,7 @@ export interface MainSettings {
   hideRequested: boolean;
   localLogin: boolean;
   mediaServerLogin: boolean;
+  oidcLogin: boolean;
   newPlexLogin: boolean;
   discoverRegion: string;
   streamingRegion: string;
@@ -219,6 +243,7 @@ interface FullPublicSettings extends PublicSettings {
   youtubeUrl: string;
   versionCheck: boolean;
   plexClientIdentifier: string;
+  openIdProviders: PublicOidcProvider[];
 }
 
 export interface NotificationAgentConfig {
@@ -382,6 +407,7 @@ export interface AllSettings {
   main: MainSettings;
   plex: PlexSettings;
   jellyfin: JellyfinSettings;
+  oidc: OidcSettings;
   tautulli: TautulliSettings;
   radarr: RadarrSettings[];
   sonarr: SonarrSettings[];
@@ -402,6 +428,13 @@ class Settings {
   private saveLock: Promise<void> = Promise.resolve();
 
   constructor(initialSettings?: AllSettings) {
+    this.reset();
+    if (initialSettings) {
+      this.data = mergeSettings(this.data, initialSettings);
+    }
+  }
+
+  public reset(): void {
     this.data = {
       clientId: randomUUID(),
       sessionSecret: '',
@@ -422,6 +455,7 @@ class Settings {
         hideRequested: false,
         localLogin: true,
         mediaServerLogin: true,
+        oidcLogin: false,
         newPlexLogin: true,
         discoverRegion: '',
         streamingRegion: '',
@@ -455,6 +489,9 @@ class Settings {
         libraries: [],
         serverId: '',
         apiKey: '',
+      },
+      oidc: {
+        providers: [],
       },
       tautulli: {},
       metadataSettings: {
@@ -638,9 +675,6 @@ class Settings {
       },
       migrations: [],
     };
-    if (initialSettings) {
-      this.data = mergeSettings(this.data, initialSettings);
-    }
   }
 
   get main(): MainSettings {
@@ -665,6 +699,14 @@ class Settings {
 
   set jellyfin(data: JellyfinSettings) {
     this.data.jellyfin = mergeSettings(this.data.jellyfin, data);
+  }
+
+  get oidc(): OidcSettings {
+    return this.data.oidc;
+  }
+
+  set oidc(data: OidcSettings) {
+    this.data.oidc = data;
   }
 
   get tautulli(): TautulliSettings {
@@ -745,6 +787,13 @@ class Settings {
       youtubeUrl: this.data.main.youtubeUrl,
       versionCheck: this.data.main.versionCheck,
       plexClientIdentifier: this.data.clientId,
+      openIdProviders: this.data.main.oidcLogin
+        ? (this.data.oidc?.providers ?? []).map((p) => ({
+            slug: p.slug,
+            name: p.name,
+            logo: p.logo,
+          }))
+        : [],
     };
   }
 
@@ -820,11 +869,23 @@ class Settings {
    * values
    */
   public async load(
-    overrideSettings?: AllSettings,
+    overrideSettings?: DeepPartial<AllSettings>,
+    raw?: false
+  ): Promise<Settings>;
+  public async load(
+    overrideSettings: AllSettings | undefined,
+    raw: true
+  ): Promise<Settings>;
+  public async load(
+    overrideSettings?: DeepPartial<AllSettings>,
     raw = false
   ): Promise<Settings> {
     if (overrideSettings) {
-      this.data = overrideSettings;
+      if (raw) {
+        this.data = overrideSettings as AllSettings;
+      } else {
+        this.data = mergeSettings(this.data, overrideSettings);
+      }
       return this;
     }
 
