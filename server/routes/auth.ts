@@ -715,7 +715,10 @@ authRoutes.get('/oidc/login/:slug', async (req, res, next) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     signed: true,
-    sameSite: 'strict',
+    // OAuth correlation cookies must survive the IdP's cross-site redirect
+    // back to the app; SameSite=Strict drops them and the callback fails with
+    // "missing correlation cookies". Lax is the OAuth 2.0 BCP recommendation.
+    sameSite: 'lax',
   });
 
   const callbackUrl = getOidcRedirectUrl(req);
@@ -734,7 +737,10 @@ authRoutes.get('/oidc/login/:slug', async (req, res, next) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     signed: true,
-    sameSite: 'strict',
+    // OAuth correlation cookies must survive the IdP's cross-site redirect
+    // back to the app; SameSite=Strict drops them and the callback fails with
+    // "missing correlation cookies". Lax is the OAuth 2.0 BCP recommendation.
+    sameSite: 'lax',
   });
 
   let redirectUrl: URL;
