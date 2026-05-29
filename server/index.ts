@@ -162,7 +162,12 @@ app
     if (settings.network.trustProxy) {
       server.enable('trust proxy');
     }
-    server.use(cookieParser(settings.clientId));
+    // No secret: signing connect.sid is express-session's job (it uses
+    // sessionSecret). Passing a different secret here makes cookie-parser
+    // mangle connect.sid so the OpenAPI validator rejects authenticated
+    // requests ("cookie 'connect.sid' required"). OIDC correlation cookies
+    // are unsigned high-entropy values, so they don't need signing.
+    server.use(cookieParser());
     server.use(express.json());
     server.use(express.urlencoded({ extended: true }));
     server.use((req, _res, next) => {
