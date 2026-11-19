@@ -5532,14 +5532,6 @@ paths:
           required: true
           schema:
             type: number
-      tags:
-        - users
-      parameters:
-        - in: path
-          name: userId
-          required: true
-          schema:
-            type: number
       requestBody:
         required: true
         content:
